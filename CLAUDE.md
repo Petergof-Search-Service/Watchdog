@@ -52,6 +52,9 @@ pytest
   `vars.API_BASE_URL_{TEST,PROD}`. `CLOUD_FUNCTION_API_KEY` — общий.
 - Экшен `yc-actions/yc-sls-function@v3`, `source-root: ./src`, рантайм `python312`.
 - CI публикует только версии. Сами функции и таймер-триггеры создаются один раз вручную (см. README).
+- Состояние: testing-облако уже поднято (функция `watchdog` + триггер раз/мин, секреты заведены).
+  Prod ещё настраивается — пока prod-секретов нет, джоба `Deploy (prod)` на пуше в `main` падает с
+  `No credentials`; это ожидаемо и не ломает `test`/`Deploy (test)`.
 
 ## Чего не делать
 

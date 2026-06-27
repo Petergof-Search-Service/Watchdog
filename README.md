@@ -82,13 +82,25 @@ pytest
 ## Деплой (CI/CD)
 
 Test и prod живут в **разных облаках/каталогах** Yandex Cloud. Функция в обоих называется одинаково —
-`watchdog`; различаются только креды и `folder-id`. [`.github/workflows/ci.yml`](.github/workflows/ci.yml):
+`watchdog`; различаются только креды и `folder-id`. Рантайм — `python312`
+(соседние OCR/RAG-функции крутятся на `python314` — на совместимость с этим сервисом не влияет).
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml):
 
 - **Любой push и PR** → джоба `test` (ruff + pytest).
 - **Pull request** → деплой новой версии `watchdog` в **testing**-каталог.
 - **Мерж в `main`** → деплой новой версии `watchdog` в **prod**-каталог.
 
 Деплой выполняется экшеном [`yc-actions/yc-sls-function`](https://github.com/yc-actions/yc-sls-function).
+
+### Окружения
+
+| Окружение | Когда деплоится     | Креды в GitHub                                                              | Статус       |
+|-----------|---------------------|----------------------------------------------------------------------------|--------------|
+| testing   | при открытии PR     | `YC_SA_JSON_CREDENTIALS_TEST`, `YC_FOLDER_ID_TEST`, `vars.API_BASE_URL_TEST` | поднят       |
+| prod      | при мерже в `main`  | `YC_SA_JSON_CREDENTIALS_PROD`, `YC_FOLDER_ID_PROD`, `vars.API_BASE_URL_PROD` | настраивается |
+
+В каждом облаке функция `watchdog` и таймер-триггер `watchdog-timer` (раз в минуту) создаются один раз —
+см. «Разовая настройка». Первый деплой кода в testing-функцию происходит при открытии любого PR.
 
 ### Требуемые настройки GitHub
 

@@ -1,0 +1,86 @@
+name: Test and Deploy Watchdog
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  test:
+    name: Lint and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Ruff
+        run: ruff check
+
+      - name: Pytest
+        run: pytest -q
+
+  # Pull request -> deploy to the TESTING cloud/folder.
+  deploy-test:
+    name: Deploy (test)
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Deploy function version
+        uses: yc-actions/yc-sls-function@v3
+        with:
+          yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS_TEST }}
+          folder-id: ${{ secrets.YC_FOLDER_ID_TEST }}
+          function-name: watchdog
+          runtime: python312
+          entrypoint: handler.handler
+          memory: 256Mb
+          execution-timeout: 60
+          source-root: ./src
+          include: |
+            **
+          environment: |
+            API_BASE_URL=${{ vars.API_BASE_URL_TEST }}
+            CLOUD_FUNCTION_API_KEY=${{ secrets.CLOUD_FUNCTION_API_KEY }}
+
+  # Merge to main -> deploy to the PROD cloud/folder.
+  deploy-prod:
+    name: Deploy (prod)
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy function version
+        uses: yc-actions/yc-sls-function@v3
+        with:
+          yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS_PROD }}
+          folder-id: ${{ secrets.YC_FOLDER_ID_PROD }}
+          function-name: watchdog
+          runtime: python312
+          entrypoint: handler.handler
+          memory: 256Mb
+          execution-timeout: 60
+          source-root: ./src
+          include: |
+            **
+          environment: |
+            API_BASE_URL=${{ vars.API_BASE_URL_PROD }}
+            CLOUD_FUNCTION_API_KEY=${{ secrets.CLOUD_FUNCTION_API_KEY }}
